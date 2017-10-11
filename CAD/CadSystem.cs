@@ -37,8 +37,11 @@ namespace CAD
         public void ParseInput(string text)
         {
             //Split Input
-            IO.parsedObj result = IO.parsing.parseString(text, ";, ");
-
+            IO.parsedObj result = IO.parsing.parseString(text);
+            if (result == null)
+            {
+                return;
+            }
             //Switch first Letter
             if (drawingFunctions.ContainsKey(result.type))
                 drawingFunctions[result.type].Invoke(result.value);
@@ -53,21 +56,14 @@ namespace CAD
 
             public static class parsing
             {
-                static char delim = ';';
-                public static parsedObj parseString(string input, string delims)
+                public static parsedObj parseString(string input, char delim = ' ')
                 {
-                    foreach (char c in delims)
-                    {
-                        if (input.IndexOf(c) != -1)
-                        {
-                            delim = c;
-                        }
-                    }
-                    string[] text_array = input.Split(delim);
                     parsedObj retObj = new parsedObj();
 
-                    if (Regex.IsMatch(text_array[0], @"^[a-zA-Z]+?.*?")) // if starts with a string
+                    if (Regex.IsMatch(input, @"^[a-zA-Z]+(\s[0-9.]*)*?$")) // if starts with a string
                     {
+                        input = Regex.Replace(input, @"\s+", @" ");
+                        string[] text_array = input.Trim().Split(delim);
                         retObj.type = text_array[0].ToUpper();
                         if (text_array.Length > 1)
                         {
@@ -77,7 +73,11 @@ namespace CAD
                             }
                         }
                     }
-
+                    else
+                    {
+                        Console.WriteLine("Input was not in correct format. Example: 'L 1.5 1 2 2' to draw a line from (1.5,1) to (2,2) while in global positioning.");
+                        return null;
+                    }
                     return retObj;
                 }
             }
