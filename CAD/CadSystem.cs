@@ -60,7 +60,7 @@ namespace CAD
                 {
                     parsedObj retObj = new parsedObj();
 
-                    if (Regex.IsMatch(input, @"^[a-zA-Z]+(\s[0-9.]*)*?$")) // if starts with a string
+                    if (Regex.IsMatch(input, @"^[a-zA-Z]+(\s[0-9.-]*)*?$")) // if starts with a string
                     {
                         input = Regex.Replace(input, @"\s+", @" ");
                         string[] text_array = input.Trim().Split(delim);
