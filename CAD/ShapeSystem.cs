@@ -4,6 +4,7 @@ using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Xml.Serialization;
 
 namespace CAD
 {
@@ -11,13 +12,43 @@ namespace CAD
     public class ShapeSystem
     {
 
-        static List<Shape> ShapeList = new List<Shape>();
+        public static List<Shape> ShapeList = new List<Shape>();
         public static DataTable DT_ShapeList = new DataTable("DT_ShapeList");
-        static Pen basicPen { get; set; }
-        static Pen activePen { get; set; }
-        static Pen dimPen { get; set; }
-        static Pen dimArrowPen { get; set; }
-        static GridSystem gridSystem { get; set; }
+        public static List<PointF> SnapPoints = new List<PointF>();
+        public static Pen basicPen { get; set; }
+        public static Pen activePen { get; set; }
+        public static Pen dimPen { get; set; }
+        public static Pen dimArrowPen { get; set; }
+        public static GridSystem gridSystem { get; set; }
+        public static void UpdateSnapPoints()
+        {
+            SnapPoints.Clear();
+            foreach (Shape S in ShapeList)
+            {
+                if (S is Snappable)
+                {
+                    Snappable snapObj = (Snappable)S;
+                    SnapPoints = SnapPoints.Union((snapObj.GetSnapPoints()).OrderByDescending(p => p.X)).ToList();
+                }
+            }
+        }
+        public static List<PointF> GetSnapPoints()
+        {
+            return SnapPoints;
+        }
+        public void ClearData()
+        {
+            List<int> ShapeIds = new List<int>();
+            foreach (Shape S in ShapeList)
+            {
+                ShapeIds.Add(S.IdShape);
+            }
+            foreach (int I in ShapeIds)
+            {
+                RemoveShapeById(I);
+            }
+            UpdateSnapPoints();
+        }
         public void SetGrid(GridSystem grid)
         {
             gridSystem = grid;
@@ -27,12 +58,26 @@ namespace CAD
             Shape S = ShapeList.Where(s => s.IdShape == Id).FirstOrDefault();
             return S;
         }
+        public bool ActivateShapeUnderPoint(PointF P)
+        {
+            P = gridSystem.theorizePoint(P);
+            foreach (Line L in GetShapes().Where(x => x.MetaName == "Line"))
+            {
+                if (gridSystem.CheckCircleLineIntersection(P, .1F, L.P1, L.P2)){
+                    MakeActiveShape(GetShapeById(L.IdShape));
+                    return true;
+                }
+            }
+            return false;
+        }
         public bool RemoveShapeById(int Id)
         {
             Shape S = ShapeList.Where(s => s.IdShape == Id).FirstOrDefault();
             if (S != null)
             {
                 ShapeList.Remove(S);
+                DT_ShapeList.Rows.Remove(DT_ShapeList.Rows.Find(S.IdShape));
+                UpdateSnapPoints();
                 return true;
             }
             return false;
@@ -44,6 +89,7 @@ namespace CAD
             {
                 ShapeList.Remove(S);
                 DT_ShapeList.Rows.Remove(DT_ShapeList.Rows.Find(S.IdShape));
+                UpdateSnapPoints();
                 return true;
             }
             return false;
@@ -95,7 +141,6 @@ namespace CAD
             dimArrowPen.CustomStartCap = dimPenCap;
             dimArrowPen.CustomEndCap = dimPenCap;
         }
-
         public ShapeSystem()
         {
             DataColumn IdShape = new DataColumn("IdShape");
@@ -121,6 +166,7 @@ namespace CAD
             DT_ShapeList.Columns.Add(DisplayString);
 
         }
+        public AdjustableArrowCap DisplayArrow = new AdjustableArrowCap(5, 5);
 
         public static void AddShapeToDataSet(Shape S)
         {
@@ -133,6 +179,12 @@ namespace CAD
             DT_ShapeList.Rows.Add(row);
         }
 
+        public interface Snappable
+        {
+            List<PointF> GetSnapPoints();
+        }
+
+        [Serializable]
         public abstract class Shape
         {
             public abstract void Draw(Graphics g);
@@ -146,7 +198,7 @@ namespace CAD
             public Shape()
             {
                 ShapeList.Add(this);
-                IdShape = ShapeList.Count();
+                IdShape = ShapeList.Max(m => m.IdShape) + 1;
                 ShapeSystem.MakeActiveShape(this);
             }
         }
@@ -154,15 +206,18 @@ namespace CAD
         [Serializable]
         public class LineDimension : Shape
         {
-            internal Line ParentLine;
+            public Line ParentLine { get; set; }
             public float distanceFromLine { get; set; }
             public float leadingLineLength { get; set; }
             public float dimInsetFromLeadingLine { get; set; }
             public float dimLength { get; set; }
             public string TxDisplay { get; set; }
             public Font TxFont { get; set; }
-            AdjustableArrowCap DisplayArrow = new AdjustableArrowCap(5, 5);
+            
+            public LineDimension()
+            {
 
+            }
             public LineDimension(Line L, float dist)
             {
                 this.ParentLine = L;
@@ -272,11 +327,16 @@ namespace CAD
         }
 
         [Serializable]
-        public class Line : Shape
+        public class Line : Shape, Snappable
         {
-            internal PointF P1;
-            internal PointF P2;
+            public PointF P1;
+            public PointF P2;
             public double slope;
+            
+            public Line()
+            {
+
+            }
             public Line(PointF p1, PointF p2)
             {
                 this.P1 = p1;
@@ -284,9 +344,10 @@ namespace CAD
                 this.ParentId = -1;
                 this.MetaName = "Line";
                 object[] MetaDescArray = { this.P1.X, this.P1.Y, this.P2.X, this.P2.Y };
-                this.MetaDesc = string.Format("{0},{1}:{2},{3}", MetaDescArray);
+                this.MetaDesc = string.Format("({0},{1}):({2},{3})", MetaDescArray);
                 AddShapeToDataSet(this);
                 this.slope = (P2.Y - P1.Y) / (P2.X - P1.X);
+                ShapeSystem.UpdateSnapPoints();
             }
 
             public static PointF GetFractionOfLine(PointF p1, PointF p2, float frac)
@@ -333,6 +394,12 @@ namespace CAD
                 new LineDimension(this, .5F);
             }
 
+            public List<PointF> GetSnapPoints()
+            {
+                PointF P3 = GetFractionOfLine(P1, P2, .5F);
+                return new List<PointF>() { P1, P2, P3 };
+            } 
+
             public override void Draw(Graphics g)
             {
                 if (isActiveShape)
@@ -345,6 +412,41 @@ namespace CAD
                 else
                     g.DrawLine(basicPen, gridSystem.realizePoint(P1), gridSystem.realizePoint(P2));
 
+            }
+        }
+
+        [Serializable]
+        public class Snapshot
+        {
+            public List<Line> list_Line = new List<Line>();
+            public List<LineDimension> list_Dim = new List<LineDimension>();
+            public Snapshot()
+            {
+                foreach (Shape S in ShapeList)
+                {
+                    if (S.MetaName == "Line")
+                    {
+                        list_Line.Add((Line)S);
+                    }
+                    else if (S.MetaName == "Dim")
+                    {
+                        list_Dim.Add((LineDimension)S);
+                    }
+                }
+            }
+
+            public void Load()
+            {
+                foreach (Line L in list_Line)
+                {
+                    ShapeList.Add(L);
+                    AddShapeToDataSet(L);
+                }
+                foreach (LineDimension L in list_Dim)
+                {
+                    ShapeList.Add(L);
+                    AddShapeToDataSet(L);
+                }
             }
         }
 
