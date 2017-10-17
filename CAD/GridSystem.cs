@@ -15,7 +15,7 @@ namespace CAD
         public RectangleF gridBounds;
         public SizeF containerSize;
         public int subUnits = 4;
-        private Pen gridPen = new Pen(Color.LightGray);
+        private Pen gridPen = new Pen(Color.FromArgb(255,240,240,240));
         private Pen cursPen = new Pen(Color.FromArgb(100, Color.Black), 3);
         private Pen origPen = new Pen(Color.FromArgb(100, Color.Green), 3);
         public int DPI;
@@ -114,6 +114,10 @@ namespace CAD
         {
             cursorPosition = GetNearestSnapPoint(p1);
         }
+        public PointF GetCursorReal()
+        {
+            return realizePoint(cursorPosition);
+        }
         public void SnapOriginToPoint(PointF p1)
         {
             gridOrigin = GetNearestSnapPoint_Real(p1);
@@ -128,8 +132,8 @@ namespace CAD
             //p1.Y -= - (gridOrigin.Y-gridBounds.Y);
             float x = 0;
             float y = 0;
-            int gridSpacing = (int)(gridIncrements * (DPI * gridScale));
-            int snapDistance = (gridSpacing / 2) + 1;
+            float gridSpacing = (gridIncrements * (DPI * gridScale));
+            float snapDistance = (gridSpacing / 2) + 1;
 
             //Forwards X
             for (float i = (int)gridOrigin.X; i < (int)gridBounds.Right; i += gridSpacing)
@@ -173,8 +177,8 @@ namespace CAD
         {
             float x = 0;
             float y = 0;
-            int gridSpacing = (int)((gridIncrements * DPI) / 4);
-            int snapDistance = (gridSpacing / 2) + 1;
+            float gridSpacing = ((gridIncrements * DPI) / 4);
+            float snapDistance = (gridSpacing / 2) + 1;
 
             //Forwards X
             for (float i = (int)gridOrigin.X; i < (int)gridBounds.Right; i += gridSpacing)
@@ -232,7 +236,7 @@ namespace CAD
         {
             g.Clip = new Region(gridBounds);
 
-            int gridSpacing = (int)(gridIncrements * (DPI * gridScale));
+            float gridSpacing = (gridIncrements * (DPI * gridScale));
             //X+ Lines
             for (float i = (int)gridOrigin.X; i < (int)gridBounds.Right; i += gridSpacing)
             {
@@ -271,6 +275,10 @@ namespace CAD
 
             g.DrawLine(cursPen, new PointF(C.X - 25,C.Y), new PointF(C.X + 25, C.Y));
             g.DrawLine(cursPen, new PointF(C.X, C.Y - 25), new PointF(C.X, C.Y + 25));
+        }
+        public void DrawLineToCursor(Graphics g,PointF start, PointF end)
+        {
+            g.DrawLine(cursPen, start, end);
         }
 
 

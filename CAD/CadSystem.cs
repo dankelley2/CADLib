@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
@@ -9,6 +10,7 @@ namespace CAD
 {
     public class CadSystem
     {
+        //Datasets
         //Create commandHistory object
         public CommandHistory commandHistory = new CommandHistory();
         public CadSystem.ClickCache clickCache = new CadSystem.ClickCache();
@@ -31,7 +33,10 @@ namespace CAD
             this.drawingFunctions.Add("C", gridSystem.SetCursor);
             Action PosToggle =
                 () => gridSystem.TogglePositioning();
+            Action DimActiveLine =
+                () => shapeSystem.DimensionActiveLine();
             this.gridFunctions.Add("R", PosToggle);
+            this.gridFunctions.Add("D", DimActiveLine);
         }
 
         public void ParseInput(string text)
