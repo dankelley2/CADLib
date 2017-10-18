@@ -175,7 +175,7 @@ namespace CAD
             row["IdParentShape"] = S.ParentId;
             row["MetaName"] = S.MetaName;
             row["MetaDesc"] = S.MetaDesc;
-            row["DisplayString"] = S.MetaName + " " + S.IdShape.ToString();
+            row["DisplayString"] = S.MetaName + " " + S.IdShape.ToString() + " : " + S.MetaDesc;
             DT_ShapeList.Rows.Add(row);
         }
 
@@ -230,7 +230,7 @@ namespace CAD
                 this.dimLength = (float)Math.Sqrt((Math.Pow(x1 - x2, 2) + Math.Pow(y1 - y2, 2)));
                 this.MetaName = "Dim";
                 object[] MetaDescArray = { this.ParentLine.MetaName, this.ParentLine.IdShape };
-                this.MetaDesc = string.Format("for {0} {1}", MetaDescArray);
+                this.MetaDesc = string.Format("{0} {1}", MetaDescArray);
                 this.distanceFromLine = .0625F;
                 this.leadingLineLength = .5F;
                 this.dimInsetFromLeadingLine = .125F;
@@ -310,19 +310,28 @@ namespace CAD
 
                 List<PointF> leaderLine1 = CalculateSidelines(P1, dimSlope, distanceFromLine, leadingLineLength);
                 List<PointF> leaderLine2 = CalculateSidelines(P2, dimSlope, distanceFromLine, leadingLineLength);
-                
-                g.DrawLine(dimPen, gridSystem.realizePoint(leaderLine1[0]), gridSystem.realizePoint(leaderLine1[1]));
-                g.DrawLine(dimPen, gridSystem.realizePoint(leaderLine2[0]), gridSystem.realizePoint(leaderLine2[1]));
-                g.DrawLine(dimArrowPen, gridSystem.realizePoint(leaderLine1[2]), gridSystem.realizePoint(leaderLine2[2]));
 
+                if (isActiveShape)
+                {
+                    g.DrawLine(new Pen(activePen.Color), gridSystem.realizePoint(leaderLine1[0]), gridSystem.realizePoint(leaderLine1[1]));
+                    g.DrawLine(new Pen(activePen.Color), gridSystem.realizePoint(leaderLine2[0]), gridSystem.realizePoint(leaderLine2[1]));
+                    g.DrawLine(dimArrowPen, gridSystem.realizePoint(leaderLine1[2]), gridSystem.realizePoint(leaderLine2[2]));
+
+                }
+                else
+                {
+                    g.DrawLine(dimPen, gridSystem.realizePoint(leaderLine1[0]), gridSystem.realizePoint(leaderLine1[1]));
+                    g.DrawLine(dimPen, gridSystem.realizePoint(leaderLine2[0]), gridSystem.realizePoint(leaderLine2[1]));
+                    g.DrawLine(dimArrowPen, gridSystem.realizePoint(leaderLine1[2]), gridSystem.realizePoint(leaderLine2[2]));
+                }
                 //dimLength string
                 string dimLength = Math.Round((decimal)this.dimLength, 4).ToString() + "\"";
-                SizeF dimLength_Size =  g.MeasureString(dimLength, this.TxFont);
+                SizeF dimLength_Size = g.MeasureString(dimLength, this.TxFont);
                 PointF drawingPoint = Line.GetFractionOfLine(gridSystem.realizePoint(leaderLine1[2]), gridSystem.realizePoint(leaderLine2[2]), .5F);
                 drawingPoint.X = drawingPoint.X - (dimLength_Size.Width / 2);
                 drawingPoint.Y = drawingPoint.Y - (dimLength_Size.Height / 2);
-                g.FillRectangle(new SolidBrush(Color.White), new RectangleF(drawingPoint.X-2,drawingPoint.Y-2, dimLength_Size.Width+4,dimLength_Size.Height+4));
-                g.DrawString(dimLength, this.TxFont, new SolidBrush(Color.Black),drawingPoint);
+                g.FillRectangle(new SolidBrush(Color.White), new RectangleF(drawingPoint.X - 2, drawingPoint.Y - 2, dimLength_Size.Width + 4, dimLength_Size.Height + 4));
+                g.DrawString(dimLength, this.TxFont, new SolidBrush(Color.Black), drawingPoint);
             }
         }
 
