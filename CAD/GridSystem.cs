@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace CAD
 {
@@ -13,7 +14,8 @@ namespace CAD
         public PointF cursorPosition { get; set; }
         public bool showGrid   = true;
         public bool showOrigin = true;
-        public bool showSnaps  = true;
+        public bool showSnaps = true;
+        public bool showActiveSnaps = false;
         public bool showDims = true;
         public bool relativePositioning = false;
         public RectangleF gridBounds;
@@ -46,6 +48,11 @@ namespace CAD
         {
             showSnaps = !(showSnaps);
             return showSnaps;
+        }
+        public bool toggleActiveSnaps()
+        {
+            showActiveSnaps = !(showActiveSnaps);
+            return showActiveSnaps;
         }
         public bool toggleOrigin()
         {
@@ -143,49 +150,6 @@ namespace CAD
         public PointF GetCursorReal()
         {
             return realizePoint(cursorPosition);
-        }
-        public bool CheckCircleLineIntersection(PointF CPoint, float CRad, PointF A, PointF B)
-        {
-            //Distance between two points
-            var d = Math.Sqrt(Math.Pow((B.X - A.X), 2) +
-                                    Math.Pow((B.Y - A.Y), 2));
-            //Get nearest of C
-            var a = (1 / Math.Pow(d, 2)) *
-                    (
-                        ((B.X - A.X) * (CPoint.X - A.X)) +
-                        ((B.Y - A.Y) * (CPoint.Y - A.Y))
-                    );
-            PointF nearest = new PointF();
-            nearest.X = (float)(A.X + (B.X - A.X) * a);
-            nearest.Y = (float)(A.Y + (B.Y - A.Y) * a);
-
-            //Check if point within circle
-            var distToPoint = Math.Sqrt(Math.Pow((CPoint.X - nearest.X), 2) +
-                                    Math.Pow((CPoint.Y - nearest.Y), 2));
-            if(distToPoint <= CRad)
-            {
-                
-                //line intersects, but check in line segment
-                var ma = Math.Sqrt(Math.Pow((A.X - nearest.X), 2) +
-                                        Math.Pow((A.Y - nearest.Y), 2));
-                var mb = Math.Sqrt(Math.Pow((B.X - nearest.X), 2) +
-                                        Math.Pow((B.Y - nearest.Y), 2));
-
-                //line intersects, but check in line segment
-                var ac = Math.Sqrt(Math.Pow((CPoint.X - nearest.X), 2) +
-                                        Math.Pow((CPoint.Y - A.Y), 2));
-                var bc = Math.Sqrt(Math.Pow((CPoint.X - nearest.X), 2) +
-                                        Math.Pow((CPoint.Y - nearest.Y), 2));
-                if (ma <= d && mb <= d)
-                {
-                    if (ac <= CRad || bc <= CRad)
-                    {
-                        return true;
-                    }
-                }
-
-            }
-            return false;
         }
         public void SnapOriginToPoint(PointF p1)
         {
@@ -380,11 +344,26 @@ namespace CAD
             if (!(showSnaps)) { return; }
             g.Clip = new Region(gridBounds);
             //Cursor
-            foreach (PointF S in ShapeSystem.GetSnapPoints())
+            if (showActiveSnaps)
             {
-                PointF P = realizePoint(S);
-                g.DrawLine(new Pen(Color.Orange), new PointF(P.X - 10, P.Y), new PointF(P.X + 10, P.Y));
-                g.DrawLine(new Pen(Color.Orange), new PointF(P.X, P.Y - 10), new PointF(P.X, P.Y + 10));
+                foreach (ShapeSystem.Shape S in ShapeSystem.ShapeList.Where(s => s.isActiveShape == true && s is ShapeSystem.iSnappable))
+                {
+                    foreach (PointF sp in ((ShapeSystem.iSnappable)S).GetSnapPoints())
+                    {
+                        PointF P = realizePoint(sp);
+                        g.DrawLine(new Pen(Color.Orange), new PointF(P.X - 10, P.Y), new PointF(P.X + 10, P.Y));
+                        g.DrawLine(new Pen(Color.Orange), new PointF(P.X, P.Y - 10), new PointF(P.X, P.Y + 10));
+                    }
+                }
+            }
+            else
+            {
+                foreach (PointF S in ShapeSystem.GetSnapPoints())
+                {
+                    PointF P = realizePoint(S);
+                    g.DrawLine(new Pen(Color.Orange), new PointF(P.X - 10, P.Y), new PointF(P.X + 10, P.Y));
+                    g.DrawLine(new Pen(Color.Orange), new PointF(P.X, P.Y - 10), new PointF(P.X, P.Y + 10));
+                }
             }
         }
         public void DrawLineToCursor(Graphics g,PointF start, PointF end)

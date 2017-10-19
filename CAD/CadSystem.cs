@@ -33,7 +33,10 @@ namespace CAD
             this.shapeSystem.SetGrid(gridSystem);
             //SET FUNCTIONS
             this.drawingFunctions.Add("L", ShapeSystem.Line.AddLine);
+            this.drawingFunctions.Add("RT", ShapeSystem.Rect.AddRect);
             this.drawingFunctions.Add("C", gridSystem.SetCursor);
+            this.drawingFunctions.Add("P", ShapeSystem.cadPoint.AddPoint);
+            this.drawingFunctions.Add("AJD", ShapeSystem.LineDimension.AdjDim);
             Action PosToggle =
                 () => gridSystem.TogglePositioning();
             Action DimActiveLine =
@@ -41,6 +44,7 @@ namespace CAD
             this.gridFunctions.Add("R", PosToggle);
             this.gridFunctions.Add("D", DimActiveLine);
         }
+
         public bool SerializeAndSaveShapes(string fileName)
         {
                 ShapeSystem.Snapshot savefile = new ShapeSystem.Snapshot();
