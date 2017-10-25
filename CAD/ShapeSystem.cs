@@ -11,7 +11,6 @@ namespace CAD
     [Serializable]
     public class ShapeSystem
     {
-
         public static List<Shape> ShapeList = new List<Shape>();
         public static DataTable DT_ShapeList = new DataTable("DT_ShapeList");
         public static List<PointF> SnapPoints = new List<PointF>();
@@ -19,7 +18,57 @@ namespace CAD
         public static Pen activePen { get; set; }
         public static Pen dimPen { get; set; }
         public static Pen dimArrowPen { get; set; }
+        public static Pen ctorLinePen { get; set; }
         public static GridSystem gridSystem { get; set; }
+        
+        public static int FindLineCircleIntersections(
+            PointF P1, float radius,
+            PointF point1, PointF point2,
+            out PointF intersection1, out PointF intersection2)
+        {
+            float cx = P1.X;
+            float cy = P1.Y;
+            float dx, dy, A, B, C, det, t;
+
+            dx = point2.X - point1.X;
+            dy = point2.Y - point1.Y;
+
+            A = dx * dx + dy * dy;
+            B = 2 * (dx * (point1.X - cx) + dy * (point1.Y - cy));
+            C = (point1.X - cx) * (point1.X - cx) +
+                (point1.Y - cy) * (point1.Y - cy) -
+                radius * radius;
+
+            det = B * B - 4 * A * C;
+            if ((A <= 0.0000001) || (det < 0))
+            {
+                // No real solutions.
+                intersection1 = new PointF(float.NaN, float.NaN);
+                intersection2 = new PointF(float.NaN, float.NaN);
+                return 0;
+            }
+            else if (det == 0)
+            {
+                // One solution.
+                t = -B / (2 * A);
+                intersection1 =
+                    new PointF(point1.X + t * dx, point1.Y + t * dy);
+                intersection2 = new PointF(float.NaN, float.NaN);
+                return 1;
+            }
+            else
+            {
+                // Two solutions.
+                t = (float)((-B + Math.Sqrt(det)) / (2 * A));
+                intersection1 =
+                    new PointF(point1.X + t * dx, point1.Y + t * dy);
+                t = (float)((-B - Math.Sqrt(det)) / (2 * A));
+                intersection2 =
+                    new PointF(point1.X + t * dx, point1.Y + t * dy);
+                return 2;
+            }
+        }
+
         public static void FixParentAbandonmentIssues(int IdShape)
         {
             foreach (DataRow row in DT_ShapeList.Rows)
@@ -30,6 +79,7 @@ namespace CAD
                 }
             }
         }
+
         public static void UpdateSnapPoints()
         {
             SnapPoints.Clear();
@@ -42,10 +92,12 @@ namespace CAD
                 }
             }
         }
+
         public static List<PointF> GetSnapPoints()
         {
             return SnapPoints;
         }
+
         public void ClearData()
         {
             List<int> ShapeIds = new List<int>();
@@ -59,15 +111,18 @@ namespace CAD
             }
             UpdateSnapPoints();
         }
+
         public void SetGrid(GridSystem grid)
         {
             gridSystem = grid;
         }
+
         public Shape GetShapeById(int Id)
         {
             Shape S = ShapeList.Where(s => s.IdShape == Id).FirstOrDefault();
             return S;
         }
+
         public bool ActivateShapeUnderPoint(PointF P)
         {
             P = gridSystem.theorizePoint(P);
@@ -99,6 +154,7 @@ namespace CAD
             }
             return false;
         }
+
         public bool ActivateShapeUnderPoint<T>(PointF P) where T : iClickable
         {
             P = gridSystem.theorizePoint(P);
@@ -130,7 +186,8 @@ namespace CAD
             }
             return false;
         }
-        public double GetDistancePointToLine(PointF P, PointF A, PointF B)
+
+        public static double GetDistancePointToLine(PointF P, PointF A, PointF B)
         {
             //get Length of |AB|
             var d = Math.Sqrt(Math.Pow((B.X - A.X), 2) +
@@ -149,6 +206,7 @@ namespace CAD
                                     Math.Pow((P.Y - nearest.Y), 2));
             
         }
+
         public bool RemoveShapeById(int Id)
         {
             Shape S = ShapeList.Where(s => s.IdShape == Id).FirstOrDefault();
@@ -161,6 +219,7 @@ namespace CAD
             }
             return false;
         }
+
         public bool RemoveActiveShape()
         {
             Shape S = ShapeList.Where(s => s.isActiveShape == true).FirstOrDefault();
@@ -173,6 +232,7 @@ namespace CAD
             }
             return false;
         }
+
         public void DeselectActiveShapes()
         {
             foreach (Shape S in ShapeList)
@@ -180,14 +240,21 @@ namespace CAD
                 S.isActiveShape = false;
             }
         }
+
         public Shape GetActiveShape()
         {
             Shape S = ShapeList.Where(s => s.isActiveShape == true).FirstOrDefault();
             return S;
         }
+
         public void DimensionActiveLine()
         {
             Shape S = GetActiveShape();
+            if (S == null)
+            {
+                Console.WriteLine("No object selected.");
+                return;
+            }
             if (S.MetaName == "Line")
             {
                 S.Dimension();
@@ -198,13 +265,19 @@ namespace CAD
                 Console.WriteLine("Active object is not dimension-able.");
             }
         }
+
         public void AdjustDimByRealCursor(PointF RealCursor, int IdDim)
         {
             PointF cursor = gridSystem.theorizePoint(RealCursor);
-            LineDimension S = (LineDimension)GetShapeById(IdDim);
-            double dist = GetDistancePointToLine(cursor, S.ParentLine.P1, S.ParentLine.P2);
+            LinearDimension S = (LinearDimension)GetShapeById(IdDim);
+            double dist = GetDistancePointToLine(cursor, S.P1, S.P2);
             S._leadingLineLength = (float)dist;
+            if (cursor.X < GetFractionOfLine(S.P1, S.P2, .5F).X)
+                S.direction = -1;
+            else
+                S.direction = 1;
         }
+
         public static void MakeActiveShape(Shape S)
         {
             foreach (Shape shape in ShapeList)
@@ -213,32 +286,69 @@ namespace CAD
             }
             S.isActiveShape = true;
         }
+
+        public static void AddActiveShape(Shape S)
+        {
+            S.isActiveShape = true;
+        }
+
+        public static void SetShapeFillColor(List<float> Input)
+        {
+            Shape S = ShapeList.Where(s => s.IdShape == (int)Input[0]).FirstOrDefault();
+            if (S is iFillable)
+            {
+                if (Input.Count == 4)
+                {
+                    ((iFillable)S).FillColor = Color.FromArgb(255, (int)Input[1], (int)Input[2], (int)Input[3]);
+                }
+                else if (Input.Count == 5)
+                {
+                    ((iFillable)S).FillColor = Color.FromArgb((int)Input[1], (int)Input[2], (int)Input[3], (int)Input[4]);
+                }
+            }
+        }
+
         public void RefreshAll(Graphics g)
         {
             foreach (Shape S in ShapeList)
             {
+                if (S is iFillable)
+                {
+                    ((iFillable)S).DrawFill(g);
+                }
                 S.Draw(g);
             }
         }
+
         public List<Shape> GetShapes()
         {
             return ShapeList;
         }
+
+        public static void Draw2PTDim(PointF P1, PointF P2)
+        {
+            LinearDimension newDim = new LinearDimension(P1, P2);
+        }
+
         public void setBaseColors(Pen basic, Pen active)
         {
             ShapeSystem.basicPen = basic;
             ShapeSystem.activePen = active;
             ShapeSystem.dimPen = new Pen(Color.CornflowerBlue, 1);
             ShapeSystem.dimArrowPen = new Pen(dimPen.Color, 1);
+            ShapeSystem.ctorLinePen = new Pen(Color.FromArgb(150, Color.Orange),1);
+            ShapeSystem.ctorLinePen.DashStyle = DashStyle.Dash;
             AdjustableArrowCap dimPenCap = new AdjustableArrowCap(4, 5);
             dimArrowPen.CustomStartCap = dimPenCap;
             dimArrowPen.CustomEndCap = dimPenCap;
         }
+
         public static PointF GetFractionOfLine(PointF p1, PointF p2, float frac)
         {
             return new PointF(p1.X + frac * (p2.X - p1.X),
                                p1.Y + frac * (p2.Y - p1.Y));
         }
+
         public ShapeSystem()
         {
             DataColumn IdShape = new DataColumn("IdShape");
@@ -264,7 +374,9 @@ namespace CAD
             DT_ShapeList.Columns.Add(DisplayString);
 
         }
+
         public AdjustableArrowCap DisplayArrow = new AdjustableArrowCap(5, 5);
+
 
         public static void AddShapeToDataSet(Shape S)
         {
@@ -288,6 +400,12 @@ namespace CAD
             bool IntersectsWithCircle(PointF CPoint, float CRad);
         }
 
+        public interface iFillable
+        {
+            Color FillColor { get; set; }
+            void DrawFill(Graphics g);
+        }
+
         [Serializable]
         public abstract class Shape
         {
@@ -308,9 +426,16 @@ namespace CAD
         }
 
         [Serializable]
-        public class LineDimension : Shape , iClickable
+        public class LinearDimension : Shape , iClickable
         {
-            public Line ParentLine { get; set; }
+            public PointF P1 { get; set; }
+            public PointF P2 { get; set; }
+            public int direction = 1;
+            public double slope { get
+                {
+                    return (P2.Y - P1.Y) / (P2.X - P1.X);
+                }
+            }
             public float distanceFromLine { get; set; }
             private float leadingLineLength { get; set; }
             public float _leadingLineLength {
@@ -327,22 +452,23 @@ namespace CAD
             public string TxDisplay { get; set; }
             public Font TxFont { get; set; }
             
-            public LineDimension()
+            public LinearDimension()
             {
 
             }
-            public LineDimension(Line L, float dist)
+            public LinearDimension(Line L, float dist)
             {
-                this.ParentLine = L;
+                this.P1 = L.P1;
+                this.P2 = L.P2;
                 this.ParentId = L.IdShape;
-                float x1 = ParentLine.P1.X;
-                float y1 = ParentLine.P1.Y;
-                float x2 = ParentLine.P2.X;
-                float y2 = ParentLine.P2.Y;
+                float x1 = this.P1.X;
+                float y1 = this.P1.Y;
+                float x2 = this.P2.X;
+                float y2 = this.P2.Y;
                 this.TxFont = new System.Drawing.Font("Consolas", 8F, System.Drawing.FontStyle.Regular);
                 this.dimLength = (float)Math.Sqrt((Math.Pow(x1 - x2, 2) + Math.Pow(y1 - y2, 2)));
                 this.MetaName = "Dim";
-                object[] MetaDescArray = { this.ParentLine.MetaName, this.ParentLine.IdShape };
+                object[] MetaDescArray = { L.MetaName, L.IdShape };
                 this.MetaDesc = string.Format("{0} {1}", MetaDescArray);
                 this.distanceFromLine = .0625F;
                 this.leadingLineLength = dist;
@@ -350,7 +476,50 @@ namespace CAD
                 AddShapeToDataSet(this);
 
             }
+            public LinearDimension(PointF P1, PointF P2)
+            {
+                this.P1 = P1;
+                this.P2 = P2;
+                this.ParentId = -1;
+                float x1 = this.P1.X;
+                float y1 = this.P1.Y;
+                float x2 = this.P2.X;
+                float y2 = this.P2.Y;
+                this.TxFont = new System.Drawing.Font("Consolas", 8F, System.Drawing.FontStyle.Regular);
+                this.dimLength = (float)Math.Sqrt((Math.Pow(x1 - x2, 2) + Math.Pow(y1 - y2, 2)));
+                this.MetaName = "Dim";
+                object[] MetaDescArray = { P1.X, P1.Y, P2.X, P2.Y };
+                this.MetaDesc = string.Format("({0},{1}):({2},{3})", MetaDescArray);
+                this.distanceFromLine = .0625F;
+                this.leadingLineLength = .5F;
+                this.dimInsetFromLeadingLine = .125F;
+                AddShapeToDataSet(this);
 
+            }
+            public LinearDimension(List<float> Input)
+            {
+                float x1 = Input[0];
+                float y1 = Input[1];
+                float x2 = Input[2];
+                float y2 = Input[3];
+                this.P1 = new PointF(x1, y1);
+                this.P2 = new PointF(x2, y2);
+                this.ParentId = -1;
+                this.TxFont = new System.Drawing.Font("Consolas", 8F, System.Drawing.FontStyle.Regular);
+                this.dimLength = (float)Math.Sqrt((Math.Pow(x1 - x2, 2) + Math.Pow(y1 - y2, 2)));
+                this.MetaName = "Dim";
+                object[] MetaDescArray = { P1.X, P1.Y, P2.X, P2.Y };
+                this.MetaDesc = string.Format("({0},{1}):({2},{3})", MetaDescArray);
+                this.distanceFromLine = .0625F;
+                this.leadingLineLength = .5F;
+                this.dimInsetFromLeadingLine = .125F;
+                AddShapeToDataSet(this);
+
+            }
+            public static void AddNewDim(List<float> Input)
+            {
+                LinearDimension retDim = new LinearDimension(Input);
+            }
             public override void Dimension()
             {
                 throw new NotImplementedException();
@@ -360,9 +529,9 @@ namespace CAD
             {
                 Shape S = ShapeList.Where(s => s.IdShape == (int)Input[0]).FirstOrDefault();
 
-                if (S is LineDimension)
+                if (S is LinearDimension)
                 {
-                    ((LineDimension)S)._leadingLineLength = Input[1];
+                    ((LinearDimension)S)._leadingLineLength = Input[1];
                 }
             }
 
@@ -382,13 +551,13 @@ namespace CAD
                     // slope is 0
                     if (slope == 0)
                     {
-                        P1.X = source.X + dist;
+                        P1.X = source.X + (dist * direction);
                         P1.Y = source.Y;
 
-                        P2.X = source.X + len;
+                        P2.X = source.X + (len * direction);
                         P2.Y = source.Y;
 
-                        P3.X = source.X + len;
+                        P3.X = source.X + (len * direction);
                         P3.Y = source.Y;
                     }
 
@@ -396,28 +565,28 @@ namespace CAD
                     else if (Double.IsInfinity((double)slope))
                     {
                         P1.X = source.X;
-                        P1.Y = source.Y + dist;
+                        P1.Y = source.Y +  (dist * direction);
 
                         P2.X = source.X;
-                        P2.Y = source.Y + len;
+                        P2.Y = source.Y +  (len * direction);
 
                         P3.X = source.X;
-                        P3.Y = source.Y + len;
+                        P3.Y = source.Y +  (len * direction);
                     }
                     else
                     {
                         float distx = (float)(dist / Math.Sqrt(1 + (slope * slope)));
                         float disty = (float)slope * distx;
                         float lenx = (float)(len / Math.Sqrt(1 + (slope * slope)));
-                        float leny = (float)slope * lenx;
+                        float leny = (float)slope  * lenx;
                         float insx = (float)(.1F / Math.Sqrt(1 + (slope * slope)));
-                        float insy = (float)slope * .1F;
-                        P1.X = source.X + distx;
-                        P1.Y = source.Y + disty;
-                        P2.X = source.X + lenx;
-                        P2.Y = source.Y + leny;
-                        P3.X = source.X + lenx;
-                        P3.Y = source.Y + leny;
+                        float insy = (float)slope  * .1F;
+                        P1.X = source.X + (distx * direction);
+                        P1.Y = source.Y + (disty * direction);
+                        P2.X = source.X + (lenx  * direction);
+                        P2.Y = source.Y + (leny  * direction);
+                        P3.X = source.X + (lenx  * direction);
+                        P3.Y = source.Y + (leny  * direction);
                     }
 
                     //return new List<PointF>() { P1, P2, GetFractionOfLine(P1, P2, .75F) };
@@ -427,9 +596,9 @@ namespace CAD
 
             public bool IntersectsWithCircle(PointF CPoint, float CRad)
             {
-                double dimSlope = (1 / ParentLine.slope) * -1;
-                PointF A = CalculateSidelines(ParentLine.P1, dimSlope, distanceFromLine, leadingLineLength)[2];
-                PointF B = CalculateSidelines(ParentLine.P2, dimSlope, distanceFromLine, leadingLineLength)[2];
+                double dimSlope = (1 / this.slope) * -1;
+                PointF A = CalculateSidelines(this.P1, dimSlope, distanceFromLine, leadingLineLength)[2];
+                PointF B = CalculateSidelines(this.P2, dimSlope, distanceFromLine, leadingLineLength)[2];
                 //Distance between two points
                 var d = Math.Sqrt(Math.Pow((B.X - A.X), 2) +
                                         Math.Pow((B.Y - A.Y), 2));
@@ -473,9 +642,9 @@ namespace CAD
 
             public double GetDistanceFromPoint(PointF P)
             {
-                double dimSlope = (1 / ParentLine.slope) * -1;
-                PointF A = CalculateSidelines(ParentLine.P1, dimSlope, distanceFromLine, leadingLineLength)[2];
-                PointF B = CalculateSidelines(ParentLine.P2, dimSlope, distanceFromLine, leadingLineLength)[2];
+                double dimSlope = (1 / this.slope) * -1;
+                PointF A = CalculateSidelines(this.P1, dimSlope, distanceFromLine, leadingLineLength)[2];
+                PointF B = CalculateSidelines(this.P2, dimSlope, distanceFromLine, leadingLineLength)[2];
                 //Distance between two points
                 var d = Math.Sqrt(Math.Pow((B.X - A.X), 2) +
                                         Math.Pow((B.Y - A.Y), 2));
@@ -497,10 +666,7 @@ namespace CAD
 
             public override void Draw(Graphics g)
             {
-                PointF P1 = ParentLine.P1;
-                PointF P2 = ParentLine.P2;
-
-                double dimSlope = (1 / ParentLine.slope) * -1;
+                double dimSlope = (1 / this.slope) * -1;
 
                 List<PointF> leaderLine1 = CalculateSidelines(P1, dimSlope, distanceFromLine, leadingLineLength);
                 List<PointF> leaderLine2 = CalculateSidelines(P2, dimSlope, distanceFromLine, leadingLineLength);
@@ -606,7 +772,7 @@ namespace CAD
 
             public override void Dimension()
             {
-                new LineDimension(this, .5F);
+                new LinearDimension(this, .5F);
             }
 
             public List<PointF> GetSnapPoints()
@@ -697,13 +863,21 @@ namespace CAD
 
             }
         }
+        
         [Serializable]
-        public class Rect : Shape, iSnappable
+        public class ConstructionLine: Line
+        {
+
+        }
+
+        [Serializable]
+        public class Rect : Shape, iSnappable, iFillable
         {
             public Line AB;
             public Line BC;
             public Line CD;
             public Line DA;
+            public Color FillColor { get; set; }
 
             public Rect()
             {
@@ -738,7 +912,6 @@ namespace CAD
                     PointF p2 = new PointF(Math.Max(cursor.X, cursor.X + Input[0]), Math.Min(cursor.Y, cursor.Y + Input[1]));
                     PointF p3 = new PointF(Math.Max(cursor.X, cursor.X + Input[0]), Math.Max(cursor.Y, cursor.Y + Input[1]));
                     PointF p4 = new PointF(Math.Min(cursor.X, cursor.X + Input[0]), Math.Max(cursor.Y, cursor.Y + Input[1]));
-
                     Rect RetRect = new Rect(p1, p2, p3, p4);
                     gridSystem.cursorPosition = cursor;
                     Console.WriteLine("Rectangle " + RetRect.IdShape.ToString() + " created as {0}", RetRect.MetaDesc);
@@ -773,6 +946,22 @@ namespace CAD
                 return new List<PointF>() { Middle };
             }
 
+            public void DrawFill(Graphics g)
+            {
+                if (this.FillColor == null) { return; }
+                PointF p1 = gridSystem.realizePoint(AB.P1);
+                PointF p2 = gridSystem.realizePoint(AB.P2);
+                PointF p3 = gridSystem.realizePoint(CD.P2);
+                RectangleF rect = new RectangleF(
+                      p1.X
+                    , p1.Y
+                    , p2.X - p1.X
+                    , p3.Y - p1.Y
+                    );
+                //path.CloseFigure();
+                g.FillRectangle(new SolidBrush(FillColor), rect);
+            }
+
             public override void Draw(Graphics g)
             {
                 ;
@@ -801,7 +990,7 @@ namespace CAD
             {
                 if (Input.Count == 0)
                 {
-                    PointF p1 = new PointF(gridSystem.cursorPosition.X, gridSystem.cursorPosition.Y);
+                    PointF p1 = gridSystem.cursorPosition;
                     cadPoint newPoint = new cadPoint(p1);
                     Console.WriteLine("Point " + newPoint.IdShape.ToString() + " created as {0}", newPoint.MetaDesc);
                     ShapeSystem.UpdateSnapPoints();
@@ -873,14 +1062,131 @@ namespace CAD
 
             }
         }
+        
+        [Serializable]
+        public class Ellipse: Shape, iClickable, iSnappable
+        {
+            public PointF P1;
+            public float R;
+            public Ellipse()
+            {
+
+            }
+            public Ellipse(PointF P1, float R)
+            {
+                this.P1 = P1;
+                this.R = R;
+                this.MetaName = "Ellipse";
+                this.MetaDesc = P1.X.ToString() + "," + P1.Y.ToString() + "; R: " + R.ToString();
+                AddShapeToDataSet(this);
+            }
+            public Ellipse(PointF P1, float R, Shape Parent)
+            {
+                this.P1 = P1;
+                this.R = R;
+                this.ParentId = Parent.IdShape;
+                this.MetaName = "Ellipse";
+                this.MetaDesc = P1.X.ToString() + "," + P1.Y.ToString() + "; R: " + R.ToString();
+                AddShapeToDataSet(this);
+            }
+            public static void AddEllipse(List<float> Input)
+            {
+                if (Input.Count() == 1)
+                {
+                    PointF P1 = gridSystem.cursorPosition;
+                    float R = Input[0];
+                    Ellipse retCircle = new Ellipse(P1, R);
+                    Console.WriteLine("Ellipse " + retCircle.IdShape.ToString() + " created as {0}", retCircle.MetaDesc);
+                    ShapeSystem.UpdateSnapPoints();
+                    return;
+                }
+                else if (Input.Count() == 3)
+                {
+                    PointF P1 = new PointF(Input[0], Input[1]);
+                    float R = Input[2];
+                    Ellipse retCircle = new Ellipse(P1, R);
+                    Console.WriteLine("Ellipse " + retCircle.IdShape.ToString() + " created as {0}", retCircle.MetaDesc);
+                    ShapeSystem.UpdateSnapPoints();
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine("Invalid input for Ellipse.");
+                }
+            }
+            public override void Dimension()
+            {
+                throw new NotImplementedException();
+            }
+            public bool IntersectsWithCircle(PointF CPoint, float CRad)
+            {
+                //Distance between two points
+                var dist = Math.Abs(Math.Sqrt(Math.Pow((CPoint.X - P1.X), 2) +
+                                        Math.Pow((CPoint.Y - P1.Y), 2))-R);
+                if (dist <= CRad + .03)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            public double GetDistanceFromPoint(PointF P)
+            {
+                //Check distance from nearest point
+                return (double)Math.Abs(Math.Sqrt(Math.Pow((P.X - P1.X), 2) +
+                                        Math.Pow((P.Y - P1.Y), 2)) - R);
+            }
+            public List<PointF> GetSnapPoints()
+            {
+                
+                List<PointF> snaps = new List<PointF>();
+                snaps.Add(new PointF(P1.X, P1.Y - R));
+                snaps.Add(new PointF(P1.X, P1.Y + R));
+                snaps.Add(new PointF(P1.X - R, P1.Y));
+                snaps.Add(new PointF(P1.X + R, P1.Y));
+                snaps.Add(P1);
+                foreach (Shape S in ShapeList.Where(s => s is Line))
+                {
+                    Line L = (Line)S;
+                    PointF potential1 = new PointF();
+                    PointF potential2 = new PointF();
+                    int result = ShapeSystem.FindLineCircleIntersections(P1, R, L.P1, L.P2, out potential1, out potential2);
+                    if (result == 2) {
+                        snaps.Add(potential1);
+                        snaps.Add(potential2);
+                    }
+                    else if (result == 1)
+                    {
+                        snaps.Add(potential1);
+                    }
+                }
+                return snaps;
+            }
+            public override void Draw(Graphics g)
+            {
+                PointF origin = gridSystem.realizePoint(new PointF(P1.X - R, P1.Y - R));
+                SizeF size = gridSystem.realizeSize(new SizeF(R * 2,R*2));
+                if (isActiveShape)
+                {
+                    g.DrawEllipse(activePen, new RectangleF(origin, size));
+                }
+                else
+                {
+                    g.DrawEllipse(basicPen, new RectangleF(origin, size));
+                }
+            }
+        }
 
         [Serializable]
         public class Snapshot
         {
             public List<Line> list_Line = new List<Line>();
-            public List<LineDimension> list_Dim = new List<LineDimension>();
+            public List<LinearDimension> list_Dim = new List<LinearDimension>();
             public List<cadPoint> list_cadPoint = new List<cadPoint>();
             public List<Rect> list_Rect = new List<Rect>();
+            public List<Ellipse> list_Ellipse = new List<Ellipse>();
             public Snapshot()
             {
                 foreach (Shape S in ShapeList)
@@ -889,9 +1195,9 @@ namespace CAD
                     {
                         list_Line.Add((Line)S);
                     }
-                    else if (S is LineDimension)
+                    else if (S is LinearDimension)
                     {
-                        list_Dim.Add((LineDimension)S);
+                        list_Dim.Add((LinearDimension)S);
                     }
                     else if (S is cadPoint)
                     {
@@ -900,6 +1206,10 @@ namespace CAD
                     else if (S is Rect)
                     {
                         list_Rect.Add((Rect)S);
+                    }
+                    else if (S is Ellipse)
+                    {
+                        list_Ellipse.Add((Ellipse)S);
                     }
                 }
             }
@@ -911,7 +1221,7 @@ namespace CAD
                     ShapeList.Add(L);
                     AddShapeToDataSet(L);
                 }
-                foreach (LineDimension L in list_Dim)
+                foreach (LinearDimension L in list_Dim)
                 {
                     ShapeList.Add(L);
                     AddShapeToDataSet(L);
@@ -922,6 +1232,11 @@ namespace CAD
                     AddShapeToDataSet(L);
                 }
                 foreach (Rect L in list_Rect)
+                {
+                    ShapeList.Add(L);
+                    AddShapeToDataSet(L);
+                }
+                foreach (Ellipse L in list_Ellipse)
                 {
                     ShapeList.Add(L);
                     AddShapeToDataSet(L);

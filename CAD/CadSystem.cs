@@ -34,9 +34,12 @@ namespace CAD
             //SET FUNCTIONS
             this.drawingFunctions.Add("L", ShapeSystem.Line.AddLine);
             this.drawingFunctions.Add("RT", ShapeSystem.Rect.AddRect);
+            this.drawingFunctions.Add("E", ShapeSystem.Ellipse.AddEllipse);
             this.drawingFunctions.Add("C", gridSystem.SetCursor);
             this.drawingFunctions.Add("P", ShapeSystem.cadPoint.AddPoint);
-            this.drawingFunctions.Add("AJD", ShapeSystem.LineDimension.AdjDim);
+            this.drawingFunctions.Add("AJD", ShapeSystem.LinearDimension.AdjDim);
+            this.drawingFunctions.Add("DIM", ShapeSystem.LinearDimension.AddNewDim);
+            this.drawingFunctions.Add("FILL", ShapeSystem.SetShapeFillColor);
             Action PosToggle =
                 () => gridSystem.TogglePositioning();
             Action DimActiveLine =
