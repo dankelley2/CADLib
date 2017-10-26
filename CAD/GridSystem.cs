@@ -20,19 +20,13 @@ namespace CAD
         public bool relativePositioning = false;
         public RectangleF gridBounds;
         public SizeF containerSize;
-        public int subUnits = 4;
         private Pen gridPen = new Pen(Color.FromArgb(255,240,240,240));
         private Pen cursPen = new Pen(Color.FromArgb(100, Color.Black), 3);
         private Pen origPen = new Pen(Color.FromArgb(100, Color.Green), 3);
         public int DPI;
         //all sizes currently in inches
-        public static double GetDistanceP2P(PointF P1, PointF P2)
-        {
-            return Math.Abs(Math.Sqrt(Math.Pow((P2.X - P1.X), 2) +
-                                        Math.Pow((P2.Y - P1.Y), 2)));
-        }
         
-        public GridSystem(PointF containerOrigin, SizeF containerSize, float gridIncrements, int dpi)
+        public GridSystem (PointF containerOrigin, SizeF containerSize, float gridIncrements, int dpi)
         {
             this.gridIncrements = gridIncrements;
             this.containerOrigin = containerOrigin;
@@ -44,6 +38,11 @@ namespace CAD
             this.gridOrigin = containerOrigin;
         }
 
+        public static double GetDistanceP2P(PointF P1, PointF P2)
+        {
+            return Math.Abs(Math.Sqrt(Math.Pow((P2.X - P1.X), 2) +
+                                        Math.Pow((P2.Y - P1.Y), 2)));
+        }
         public bool toggleGrid()
         {
             showGrid = !(showGrid);
@@ -88,23 +87,6 @@ namespace CAD
             }
         }
 
-        public void resizeGrid(SizeF newContainerSize)
-        {
-            this.gridBounds = new RectangleF(containerOrigin, newContainerSize);
-        }
-
-        public void ZoomIn()
-        {
-            if (gridScale < 15)
-                gridScale += .125F;
-        }
-
-        public void ZoomOut()
-        {
-            if (gridScale > .25F)
-                gridScale -= .125F;
-        }
-
         public float getZoomScale()
         {
             return gridScale;
@@ -116,64 +98,31 @@ namespace CAD
             P.Y = (P.Y * (DPI * gridScale)) + gridOrigin.Y;
             return P;
         }
+
         public SizeF realizeSize(SizeF S)
         {
             S.Width = (S.Width * (DPI * gridScale));
             S.Height = (S.Height * (DPI * gridScale));
             return S;
         }
+
         public PointF theorizePoint(PointF P)
         {
             P.X = (P.X - gridOrigin.X) / (DPI * gridScale);
             P.Y = (P.Y - gridOrigin.Y) / (DPI * gridScale);
             return P;
         }
-        public void SetCursor(List<float> position)
-        {
-            if (position.Count == 2)
-            {
-                if (relativePositioning)
-                {
-                    float x1 = position[0] + this.cursorPosition.X;
-                    float y1 = position[1] + this.cursorPosition.Y;
-                    cursorPosition = new PointF(x1, y1);
-                    string[] newpos = new string[2] { position[0].ToString(), position[1].ToString() };
-                    Console.WriteLine("Cursor moved with a delta of {0}:{1}", newpos);
-                }
-                else
-                {
-                    float x1 = position[0];
-                    float y1 = position[1];
-                    cursorPosition = new PointF(x1, y1);
-                    string[] newpos = new string[2] { position[0].ToString(), position[1].ToString() };
-                    Console.WriteLine("Cursor set to {0}:{1}", newpos);
-                }
-            }
-            else
-            {
-                Console.WriteLine("Invalid cursor point.");
-            }
-        }
-        public void SnapCursorToPoint(PointF p1)
-        {
-            cursorPosition = GetNearestSnapPoint(p1);
-        }
+
         public PointF GetCursorReal()
         {
             return realizePoint(cursorPosition);
         }
-        public void SnapOriginToPoint(PointF p1)
-        {
-            gridOrigin = GetNearestSnapPoint_Real(p1);
-        }
-        public void MoveOriginByDelta_Real(PointF delta)
-        {
-            gridOrigin = new PointF(gridOrigin.X+delta.X,gridOrigin.Y+delta.Y);
-        }
+
         public bool IsWithinCurrentBounds(PointF p1)
         {
             return gridBounds.Contains(p1);
         }
+
         public PointF GetNearestSnapPoint(PointF p1)
         {
             float x = 0;
@@ -236,6 +185,7 @@ namespace CAD
             }
             return theorizePoint(new PointF(x, y));
         }
+
         public PointF GetNearestSnapPoint_Real(PointF p1)
         {
             float x = 0;
@@ -295,6 +245,65 @@ namespace CAD
             }
         }
 
+        public void SetCursor(List<float> position)
+        {
+            if (position.Count == 2)
+            {
+                if (relativePositioning)
+                {
+                    float x1 = position[0] + this.cursorPosition.X;
+                    float y1 = position[1] + this.cursorPosition.Y;
+                    cursorPosition = new PointF(x1, y1);
+                    string[] newpos = new string[2] { position[0].ToString(), position[1].ToString() };
+                    Console.WriteLine("Cursor moved with a delta of {0}:{1}", newpos);
+                }
+                else
+                {
+                    float x1 = position[0];
+                    float y1 = position[1];
+                    cursorPosition = new PointF(x1, y1);
+                    string[] newpos = new string[2] { position[0].ToString(), position[1].ToString() };
+                    Console.WriteLine("Cursor set to {0}:{1}", newpos);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Invalid cursor point.");
+            }
+        }
+
+        public void resizeGrid(SizeF newContainerSize)
+        {
+            this.gridBounds = new RectangleF(containerOrigin, newContainerSize);
+        }
+
+        public void ZoomIn()
+        {
+            if (gridScale < 15)
+                gridScale += .125F;
+        }
+
+        public void ZoomOut()
+        {
+            if (gridScale > .25F)
+                gridScale -= .125F;
+        }
+
+        public void SnapCursorToPoint(PointF p1)
+        {
+            cursorPosition = GetNearestSnapPoint(p1);
+        }
+
+        public void SnapOriginToPoint(PointF p1)
+        {
+            gridOrigin = GetNearestSnapPoint_Real(p1);
+        }
+
+        public void MoveOriginByDelta_Real(PointF delta)
+        {
+            gridOrigin = new PointF(gridOrigin.X+delta.X,gridOrigin.Y+delta.Y);
+        }
+
         public void DrawGrid(Graphics g)
         {
             if (!(showGrid)) { return; }
@@ -349,6 +358,7 @@ namespace CAD
                 g.DrawLine(gridPen, new PointF(gridBounds.X, i), new PointF(gridBounds.Width, i));
             }
         }
+
         public void DrawOrigin(Graphics g)
         {
             if (!(showOrigin)) { return; }
@@ -377,6 +387,7 @@ namespace CAD
             g.DrawLine(origPen, Gy1, Gy2);
             g.DrawLine(origPen, Gx1, Gx2);
         }
+
         public void DrawCurs(Graphics g)
         {
             g.Clip = new Region(gridBounds);
@@ -395,6 +406,7 @@ namespace CAD
             g.DrawLine(cursPen, new PointF(C.X + P.X - 25, C.Y + P.Y), new PointF(C.X + P.X + 25, C.Y + P.Y));
             g.DrawLine(cursPen, new PointF(C.X + P.X, C.Y + P.Y - 25), new PointF(C.X + P.X, C.Y + P.Y + 25));
         }
+
         public void DrawSnaps(Graphics g)
         {
             if (!(showSnaps)) { return; }
@@ -402,9 +414,9 @@ namespace CAD
             //Cursor
             if (showActiveSnaps)
             {
-                foreach (ShapeSystem.Shape S in ShapeSystem.ShapeList.Where(s => s.isActiveShape == true && s is ShapeSystem.iSnappable))
+                foreach (Shape S in ShapeSystem.ShapeList.Where(s => s.isActiveShape == true && s is iSnappable))
                 {
-                    foreach (PointF sp in ((ShapeSystem.iSnappable)S).GetSnapPoints())
+                    foreach (PointF sp in ((iSnappable)S).GetSnapPoints())
                     {
                         PointF P = realizePoint(sp);
                         g.DrawLine(new Pen(Color.Orange), new PointF(P.X - 10, P.Y), new PointF(P.X + 10, P.Y));
@@ -422,6 +434,7 @@ namespace CAD
                 }
             }
         }
+
         public void DrawLineToCursor(Graphics g,PointF start, PointF end)
         {
             g.DrawLine(cursPen, start, end);

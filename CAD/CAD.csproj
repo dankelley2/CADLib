@@ -44,8 +44,17 @@
     <Compile Include="CadSystem.cs" />
     <Compile Include="CommandHistory.cs" />
     <Compile Include="GridSystem.cs" />
+    <Compile Include="Shapes\Interfaces.cs" />
+    <Compile Include="Shapes\CadPoint.cs" />
+    <Compile Include="Shapes\Ellipse.cs" />
+    <Compile Include="Shapes\NGon.cs" />
+    <Compile Include="Shapes\Shape.cs" />
+    <Compile Include="Shapes\Snapshot.cs" />
+    <Compile Include="Shapes\Rectangle.cs" />
+    <Compile Include="Shapes\Line.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ShapeSystem.cs" />
+    <Compile Include="Shapes\LinearDimension.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -19,48 +19,49 @@ namespace CAD
         public CommandHistory commandHistory = new CommandHistory();
         public CadSystem.ClickCache clickCache = new CadSystem.ClickCache();
         public GridSystem gridSystem;
-        public ShapeSystem shapeSystem = new ShapeSystem();
-        public ShapeSystem.Shape SelectedShape;
+        public Shape SelectedShape;
         public PointF CurrentPosition = new PointF(0, 0);
         public bool RelativePositioning = false;
         public Dictionary<string, Action<List<float>>> drawingFunctions = new Dictionary<string, Action<List<float>>>();
         public Dictionary<string, Action> gridFunctions = new Dictionary<string, Action>();
         public bool InProcess = false;
-
+        
         public CadSystem(PointF origin, SizeF containerSize, float scale, int dpi)
         {
             this.gridSystem = new GridSystem(origin, containerSize, scale, dpi);
-            this.shapeSystem.SetGrid(gridSystem);
+            ShapeSystem.InitSystem();
+            ShapeSystem.SetGrid(gridSystem);
             //SET FUNCTIONS
-            this.drawingFunctions.Add("L", ShapeSystem.Line.AddLine);
-            this.drawingFunctions.Add("RT", ShapeSystem.Rect.AddRect);
-            this.drawingFunctions.Add("E", ShapeSystem.Ellipse.AddEllipse);
+            this.drawingFunctions.Add("L", Line.AddLine);
+            this.drawingFunctions.Add("RT", Rect.AddRect);
+            this.drawingFunctions.Add("E", Ellipse.AddEllipse);
             this.drawingFunctions.Add("C", gridSystem.SetCursor);
-            this.drawingFunctions.Add("P", ShapeSystem.cadPoint.AddPoint);
-            this.drawingFunctions.Add("AJD", ShapeSystem.LinearDimension.AdjDim);
-            this.drawingFunctions.Add("DIM", ShapeSystem.LinearDimension.AddNewDim);
+            this.drawingFunctions.Add("P", cadPoint.AddPoint);
+            this.drawingFunctions.Add("AJD", LinearDimension.AdjDim);
+            this.drawingFunctions.Add("DIM", LinearDimension.AddNewDim);
             this.drawingFunctions.Add("FILL", ShapeSystem.SetShapeFillColor);
             Action PosToggle =
                 () => gridSystem.TogglePositioning();
             Action DimActiveLine =
-                () => shapeSystem.DimensionActiveLine();
+                () => ShapeSystem.DimensionActiveLine();
             this.gridFunctions.Add("R", PosToggle);
             this.gridFunctions.Add("D", DimActiveLine);
         }
 
         public bool SerializeAndSaveShapes(string fileName)
         {
-                ShapeSystem.Snapshot savefile = new ShapeSystem.Snapshot();
+                Snapshot savefile = new Snapshot();
                 SerializeToFile(savefile, fileName);
                 Console.WriteLine("Shape system saved successfully to \"{0}\".", fileName);
                 return true;
         }
+
         public bool DeSerializeAndLoadShapes(string fileName)
         {
             try
             {
-                ShapeSystem.Snapshot snapshot = DeserializeFromFile<ShapeSystem.Snapshot>(fileName);
-                shapeSystem.ClearData();
+                Snapshot snapshot = DeserializeFromFile<Snapshot>(fileName);
+                ShapeSystem.ClearData();
                 snapshot.Load();
                 ShapeSystem.UpdateSnapPoints();
                 Console.WriteLine("Shape system \"{0}\" loaded.", fileName);
